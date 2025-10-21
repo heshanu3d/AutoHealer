@@ -2,7 +2,7 @@
 local healThreshold = 0.7  -- 默认70%血量阈值
 -- local healThreshold = 0.99  -- 默认70%血量阈值
 local healingSpellName = nil
-local g_enable = 1
+local g_enable = 0
 
 local classSpells = {
     ["PALADIN"] = {name = "圣光术", id = 635},
@@ -39,9 +39,39 @@ function print(msg)
     DEFAULT_CHAT_FRAME:AddMessage(msg)
 end
 
+-- 命令处理函数
+local function Healer_Command(msg)
+    if msg == "help" then
+        DEFAULT_CHAT_FRAME:AddMessage("多职业自动治疗命令:")
+        DEFAULT_CHAT_FRAME:AddMessage("/autohealer on - 启用自动治疗")
+        DEFAULT_CHAT_FRAME:AddMessage("/autohealer off - 禁用自动治疗")
+        DEFAULT_CHAT_FRAME:AddMessage("/autohealer threshold [0-100] - 设置血量百分比阈值")
+    elseif msg == "on" then
+        -- enabled = true
+        if g_enable == 0 then
+            ToggleEnable()
+        end
+        DEFAULT_CHAT_FRAME:AddMessage("自动治疗已启用")
+    elseif msg == "off" then
+        -- enabled = false
+        if g_enable == 1 then
+            ToggleEnable()
+        end
+        DEFAULT_CHAT_FRAME:AddMessage("自动治疗已禁用")
+    elseif string.find(msg, "threshold") then
+        local newThreshold = tonumber(string.match(msg, "threshold (%d+)"))
+        if newThreshold and newThreshold > 0 and newThreshold <= 100 then
+            healThreshold = newThreshold / 100
+            DEFAULT_CHAT_FRAME:AddMessage("血量阈值设置为 "..newThreshold.."%")
+        else
+            DEFAULT_CHAT_FRAME:AddMessage("无效的阈值，请输入1-100之间的数字")
+        end
+    end
+end
+
 -- 初始化函数
 -- local f = CreateFrame("Frame")
-local f = CreateFrame("Frame", "EnableAutoHealer", UIParent)
+local f = CreateFrame("Frame", "EnableAutoHealer", UIParent, "BackdropTemplate")
 
 local function Healer_OnLoad()
     f:RegisterEvent("PLAYER_LOGIN")
@@ -54,34 +84,11 @@ local function Healer_OnLoad()
     f:RegisterEvent("PLAYER_TARGET_CHANGED")
     f:RegisterEvent("GROUP_ROSTER_UPDATE")
 
-    SLASH_MCAUTOHEAL1 = "/autohealer"
-    SlashCmdList["MCAUTOHEAL"] = Healer_Command
+    SLASH_AUTOHEALER1 = "/autohealer"
+    SLASH_AUTOHEALER2 = "/ah"
+    SlashCmdList["AUTOHEALER"] = Healer_Command
 
     DEFAULT_CHAT_FRAME:AddMessage("多职业自动治疗插件已加载。输入/autohealer help获取帮助。")
-end
-
--- 命令处理函数
-local function Healer_Command(msg)
-    if msg == "help" then
-        DEFAULT_CHAT_FRAME:AddMessage("多职业自动治疗命令:")
-        DEFAULT_CHAT_FRAME:AddMessage("/autohealer on - 启用自动治疗")
-        DEFAULT_CHAT_FRAME:AddMessage("/autohealer off - 禁用自动治疗")
-        DEFAULT_CHAT_FRAME:AddMessage("/autohealer threshold [0-100] - 设置血量百分比阈值")
-    elseif msg == "on" then
-        enabled = true
-        DEFAULT_CHAT_FRAME:AddMessage("自动治疗已启用")
-    elseif msg == "off" then
-        enabled = false
-        DEFAULT_CHAT_FRAME:AddMessage("自动治疗已禁用")
-    elseif string.find(msg, "threshold") then
-        local newThreshold = tonumber(string.match(msg, "threshold (%d+)"))
-        if newThreshold and newThreshold > 0 and newThreshold <= 100 then
-            healThreshold = newThreshold / 100
-            DEFAULT_CHAT_FRAME:AddMessage("血量阈值设置为 "..newThreshold.."%")
-        else
-            DEFAULT_CHAT_FRAME:AddMessage("无效的阈值，请输入1-100之间的数字")
-        end
-    end
 end
 
 local function SetHealingSpell()
@@ -109,6 +116,16 @@ local function CheckAndHeal(unit)
         CastSpellByName(healingSpellName)
         -- CastSpellByName("圣光术")
         print("CastSpellByName("..healingSpellName..")")
+    end
+end
+
+local aliance = {"player", "pet", "party1", "partypet1", "party2", "partypet2", "party3", "partypet3", "party4", "partypet5"}
+function ForceCheckAndHeal()
+    for i, unit in ipairs(aliance) do
+        if not UnitExists(unit) then
+            return
+        end
+        CheckAndHeal(unit)
     end
 end
 
@@ -178,16 +195,19 @@ end)
 
 Healer_OnLoad()
 
--- ----------------------------------------------------------- g_enable -----------------------------------------------------------
+------------------------------------------------------------- g_enable -----------------------------------------------------------
 f:SetWidth(50)
 f:SetHeight(50)
 f:SetPoint("CENTER", -450, 200)
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")
-f:SetScript("OnDragStart", f.StartMoving)
-f:SetScript("OnDragStop", f.StopMovingOrSizing)
-
+f:SetScript("OnDragStart", function(self, button)
+	self:StartMoving()
+end)
+f:SetScript("OnDragStop", function(self)
+	self:StopMovingOrSizing()
+end)
 -- 设置背景
 f:SetBackdrop({
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -197,6 +217,7 @@ f:SetBackdrop({
     edgeSize = 32,
     insets = { left = 11, right = 12, top = 12, bottom = 11 }
 })
+
 
 -- 创建状态文本
 local text = f:CreateFontString("nil", "ARTWORK", "GameFontNormal")
