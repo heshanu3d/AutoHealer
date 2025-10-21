@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: |CFF33AAFF[BOT]|RAuto Healer
+## Author: Shan.He
+## Version: 1.0
+## RequiredDeps: 
+## Notes: Automatically heals party members and their pets based on class|n/autohealer |cFFFFFF00|n 1.12/turtle by Shan.He
+
+AutoHealer.lua
