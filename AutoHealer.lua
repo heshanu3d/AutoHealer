@@ -14,6 +14,7 @@ local classSpells = {
 local classBuffs = {
     ["PALADIN"] = {ad="力量祝福", ap="智慧祝福"},
     ["PRIEST"] = {ad = "真言术：韧", ap = "真言术：韧"},
+    ["MAGE"] = {ad = "奥术智慧", ap = "奥术智慧"},
     -- ["DRUID"] = {ad = ""},
     -- ["SHAMAN"] = {ad = ""}
 }
@@ -37,7 +38,6 @@ local classType = {
 local _, playerClass = UnitClass("player")
 local buffs = classBuffs[playerClass]
 local regexs = classRegexs[playerClass]
-local enabled = true
 
 function print(msg)
     DEFAULT_CHAT_FRAME:AddMessage(msg)
@@ -73,21 +73,19 @@ local function Healer_Command(msg)
         DEFAULT_CHAT_FRAME:AddMessage("多职业自动治疗命令:")
         DEFAULT_CHAT_FRAME:AddMessage("/autohealer on - 启用自动治疗")
         DEFAULT_CHAT_FRAME:AddMessage("/autohealer off - 禁用自动治疗")
-        DEFAULT_CHAT_FRAME:AddMessage("/autohealer threshold [0-100] - 设置血量百分比阈值")
+        DEFAULT_CHAT_FRAME:AddMessage("/autohealer th [0-100] - 设置血量百分比阈值")
     elseif msg == "on" then
-        -- enabled = true
         if g_enable == 0 then
             ToggleEnable()
         end
         DEFAULT_CHAT_FRAME:AddMessage("自动治疗已启用")
     elseif msg == "off" then
-        -- enabled = false
         if g_enable == 1 then
             ToggleEnable()
         end
         DEFAULT_CHAT_FRAME:AddMessage("自动治疗已禁用")
-    elseif string.find(msg, "threshold") then
-        local newThreshold = tonumber(string.match(msg, "threshold (%d+)"))
+    elseif string.find(msg, "th") then
+        local newThreshold = tonumber(string.match(msg, "th (%d+)"))
         if newThreshold and newThreshold > 0 and newThreshold <= 100 then
             healThreshold = newThreshold / 100
             DEFAULT_CHAT_FRAME:AddMessage("血量阈值设置为 "..newThreshold.."%")
@@ -126,6 +124,40 @@ local function SetHealingSpell()
     end
 end
 
+local function UrgentSpell(unit, hpRate)
+    if playerClass == "PRIEST" then
+        if hpRate > 0.5 then
+            return
+        end
+
+        local flagBuff = 0
+        for i=1, 15 do
+            local A=UnitBuff(unit, i)
+            if not A then
+                break
+            end
+
+            if string.match(A, "regex") then
+                flag = 1
+            end
+        end
+        local flagDebuff = 0
+        for i=1, 15 do
+            local A=UnitDebuff(unit, i)
+            if not A then
+                break
+            end
+
+            if string.match(A, "regex") then
+                flagDebuff = 1
+            end
+        end
+        if flagDebuff == 0 and flagBuff == 0 then
+            CastSpellByName("真言术：盾")
+        end
+    end
+end
+
 -- 检查并治疗函数
 local function CheckAndHeal(unit)
     DEFAULT_CHAT_FRAME:AddMessage("CheckAndHeal")
@@ -133,12 +165,13 @@ local function CheckAndHeal(unit)
 
     local health = UnitHealth(unit)
     local maxHealth = UnitHealthMax(unit)
-    print(unit.."'s hp rate: "..tostring(math.floor(health/maxHealth*100)).."%")
+    local hpRate = health/maxHealth
+    print(unit.."'s hp rate: "..tostring(math.floor(hpRate*100)).."%")
 
-    if maxHealth > 0 and health/maxHealth < healThreshold then
+    if maxHealth > 0 and hpRate < healThreshold then
         TargetUnit(unit)
+        UrgentSpell(unit, hpRate)
         CastSpellByName(healingSpellName)
-        -- CastSpellByName("圣光术")
         print("CastSpellByName("..healingSpellName..")")
     end
 end
@@ -243,8 +276,8 @@ f:SetBackdrop({
 
 -- 创建按钮
 local button = CreateFrame("button", "MyToggleButton", f, "UIPanelButtonTemplate")
-button:SetWidth(40)
-button:SetHeight(24)
+button:SetWidth(50)
+button:SetHeight(35)
 button:SetPoint("BOTTOM", 0, 5)
 
 
