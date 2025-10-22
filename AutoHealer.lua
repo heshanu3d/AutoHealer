@@ -1,6 +1,6 @@
 -- local addonName, addonTable = ...
-local healThreshold = 0.7  -- 默认70%血量阈值
--- local healThreshold = 0.99  -- 默认70%血量阈值
+local healThreshold = 0.8  -- 默认80%血量阈值
+-- local healThreshold = 0.99  -- 默认80%血量阈值
 local healingSpellName = nil
 local g_enable = 0
 
@@ -13,7 +13,7 @@ local classSpells = {
 
 local classBuffs = {
     ["PALADIN"] = {ad="力量祝福", ap="智慧祝福"},
-    -- ["PRIEST"] = {ad = ""},
+    ["PRIEST"] = {ad = "真言术：韧", ap = "真言术：韧"},
     -- ["DRUID"] = {ad = ""},
     -- ["SHAMAN"] = {ad = ""}
 }
@@ -22,13 +22,17 @@ local classBuffs = {
 -- /run for i=1,4 do local A=UnitBuff("player",i);if A then print(i.."="..A) end end
 local classRegexs = {
     ["PALADIN"] = {ad="FistOfJustice$", ap="SealOfWisdom$"},
+    ["PRIEST"] = {ad="WordFortitude$", ap="WordFortitude$"},
 }
 
+-- /run local _, class = UnitClass("target");print(class)
 local classType = {
     ["PALADIN"]="ap",
     ["ROGUE"]="ad",
     ["PRIEST"]="ap",
     ["WARRIOR"]="ad",
+    ["HUNTER"]="ad",
+    ["MAGE"]="ap",
 }
 local _, playerClass = UnitClass("player")
 local buffs = classBuffs[playerClass]
@@ -37,6 +41,30 @@ local enabled = true
 
 function print(msg)
     DEFAULT_CHAT_FRAME:AddMessage(msg)
+end
+
+-- 初始化函数
+-- local f = CreateFrame("Frame")
+local f = CreateFrame("Frame", "EnableAutoHealer", UIParent)
+
+-- 创建状态文本
+local text = f:CreateFontString("nil", "ARTWORK", "GameFontNormal")
+text:SetPoint("TOP", 0, -8)
+
+-- 更新文本显示
+function UpdateText()
+    if g_enable == 1 then
+        print("g_enable: On")
+        text:SetText("On")
+    else
+        print("g_enable: Off")
+        text:SetText("Off")
+    end
+end
+-- 切换函数
+local function ToggleEnable()
+    g_enable = 1 - g_enable -- 在0和1之间切换
+    UpdateText()
 end
 
 -- 命令处理函数
@@ -68,10 +96,6 @@ local function Healer_Command(msg)
         end
     end
 end
-
--- 初始化函数
--- local f = CreateFrame("Frame")
-local f = CreateFrame("Frame", "EnableAutoHealer", UIParent, "BackdropTemplate")
 
 local function Healer_OnLoad()
     f:RegisterEvent("PLAYER_LOGIN")
@@ -119,13 +143,12 @@ local function CheckAndHeal(unit)
     end
 end
 
-local aliance = {"player", "pet", "party1", "partypet1", "party2", "partypet2", "party3", "partypet3", "party4", "partypet5"}
+local aliance = {"player", "pet", "party1", "partypet1", "party2", "partypet2", "party3", "partypet3", "party4", "partypet4"}
 function ForceCheckAndHeal()
     for i, unit in ipairs(aliance) do
-        if not UnitExists(unit) then
-            return
+        if UnitExists(unit) then
+            CheckAndHeal(unit)
         end
-        CheckAndHeal(unit)
     end
 end
 
@@ -198,7 +221,7 @@ Healer_OnLoad()
 ------------------------------------------------------------- g_enable -----------------------------------------------------------
 f:SetWidth(50)
 f:SetHeight(50)
-f:SetPoint("CENTER", -450, 200)
+f:SetPoint("CENTER", -300, 200)
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")
@@ -218,27 +241,6 @@ f:SetBackdrop({
     insets = { left = 11, right = 12, top = 12, bottom = 11 }
 })
 
-
--- 创建状态文本
-local text = f:CreateFontString("nil", "ARTWORK", "GameFontNormal")
-text:SetPoint("TOP", 0, -8)
-
--- 更新文本显示
-function UpdateText()
-    if g_enable == 1 then
-        print("g_enable: On")
-        text:SetText("On")
-    else
-        print("g_enable: Off")
-        text:SetText("Off")
-    end
-end
--- 切换函数
-local function ToggleEnable()
-    g_enable = 1 - g_enable -- 在0和1之间切换
-    UpdateText()
-end
-
 -- 创建按钮
 local button = CreateFrame("button", "MyToggleButton", f, "UIPanelButtonTemplate")
 button:SetWidth(40)
@@ -252,10 +254,6 @@ button:SetPushedTexture("Interface\\Buttons\\UI-Panel-Button-Down")
 button:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight", "ADD")
 -- 设置按钮点击事件
 button:SetScript("OnClick", ToggleEnable)
-
-
-
-
 
 print("AutoHealer loaded...")
 UpdateText()
