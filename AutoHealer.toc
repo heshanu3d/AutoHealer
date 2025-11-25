@@ -5,4 +5,9 @@
 ## RequiredDeps: 
 ## Notes: Automatically heals party members and their pets based on class|n/autohealer |cFFFFFF00|n 1.12/turtle by Shan.He
 
+AutoBase.lua
 AutoHealer.lua
+AutoCaptcha.lua
+AutoHelper.lua
+AutoSeller.lua
+AutoItemSorter.lua

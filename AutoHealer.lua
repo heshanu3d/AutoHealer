@@ -12,7 +12,8 @@ local classSpells = {
 }
 
 local classBuffs = {
-    ["PALADIN"] = {ad="力量祝福", ap="智慧祝福"},
+    -- ["PALADIN"] = {ad="力量祝福", ap="智慧祝福"},
+    ["PALADIN"] = {ad="力量祝福", ap="王者祝福"},
     ["PRIEST"] = {ad = "真言术：韧", ap = "真言术：韧"},
     ["MAGE"] = {ad = "奥术智慧", ap = "奥术智慧"},
     -- ["DRUID"] = {ad = ""},
@@ -22,8 +23,10 @@ local classBuffs = {
 -- /run function print(msg) DEFAULT_CHAT_FRAME:AddMessage(msg) end;
 -- /run for i=1,4 do local A=UnitBuff("player",i);if A then print(i.."="..A) end end
 local classRegexs = {
-    ["PALADIN"] = {ad="FistOfJustice$", ap="SealOfWisdom$"},
+    -- ["PALADIN"] = {ad="FistOfJustice$", ap="SealOfWisdom$"},
+    ["PALADIN"] = {ad="FistOfJustice$", ap="MageArmor$"},
     ["PRIEST"] = {ad="WordFortitude$", ap="WordFortitude$"},
+    ["MAGE"] = {ad="MagicalSentry$", ap="MagicalSentry$"},
 }
 
 -- /run local _, class = UnitClass("target");print(class)
@@ -124,6 +127,8 @@ local function SetHealingSpell()
     end
 end
 
+-- /run for i=1,4 do local A=UnitBuff("player",i);if A then print(i.."="..A) end end
+-- /run for i=1,4 do local A=UnitDebuff("player",i);if A then print(i.."="..A) end end
 local function UrgentSpell(unit, hpRate)
     if playerClass == "PRIEST" then
         if hpRate > 0.5 then
@@ -137,7 +142,7 @@ local function UrgentSpell(unit, hpRate)
                 break
             end
 
-            if string.match(A, "regex") then
+            if string.match(A, "PowerWordShield") then
                 flag = 1
             end
         end
@@ -148,7 +153,7 @@ local function UrgentSpell(unit, hpRate)
                 break
             end
 
-            if string.match(A, "regex") then
+            if string.match(A, "AshesToAshes") then
                 flagDebuff = 1
             end
         end
@@ -276,8 +281,8 @@ f:SetBackdrop({
 
 -- 创建按钮
 local button = CreateFrame("button", "MyToggleButton", f, "UIPanelButtonTemplate")
-button:SetWidth(50)
-button:SetHeight(35)
+button:SetWidth(40)
+button:SetHeight(24)
 button:SetPoint("BOTTOM", 0, 5)
 
 
