@@ -27,7 +27,16 @@ end
 -- 使用函数U(3,1)~U(3,28)获取第73~100个物品的名字，
 -- 使用函数S(src_a,src_b,dst_a,dst_b)交换第src_a背包里第src_b个物品 和 第dst_a背包里第dst_b个物品 的位置
 -- 要求使用lua语言 以上提供的函数U和S ，对背包里的物品进行排序
-function SortItemsEfficient(frame_rate)
+function SortItemsEfficient(frame_rate, bag_start, bag_end)
+    local bag_start = bag_start or 0
+    local bag_end = bag_end or 0
+    local backpack_start = -1
+    local backpack_end = bag_end
+
+    if bag_start > bag_end then
+        return
+    end
+
     sortTimer.frame_rate = frame_rate or 12
     sort_cnt = 1
 
@@ -38,23 +47,28 @@ function SortItemsEfficient(frame_rate)
     nonEmptyItemCount = 0
     -- local allItems = {}
     -- local itemCount = 0
-    
+
     -- 获取所有物品
-    for i = 1, 16 do
-        itemCount = itemCount + 1
-        local itemName = U(0, i)
-        allItems[itemCount] = {
-            name = itemName,
-            backpack = 0,
-            position = i,
-            isEmpty = (itemName == "")
-        }
-        if itemName ~= "" then
-            nonEmptyItemCount = nonEmptyItemCount + 1
+    if bag_start == 0 then
+        for i = 1, 16 do
+            itemCount = itemCount + 1
+            local itemName = U(0, i)
+            allItems[itemCount] = {
+                name = itemName,
+                backpack = 0,
+                position = i,
+                isEmpty = (itemName == "")
+            }
+            if itemName ~= "" then
+                nonEmptyItemCount = nonEmptyItemCount + 1
+            end
         end
+        backpack_start = 1
+    else
+        backpack_start = bag_start
     end
-    
-    for backpack = 1, 3 do
+
+    for backpack = backpack_start, backpack_end do
         for i = 1, 28 do
             itemCount = itemCount + 1
             local itemName = U(backpack, i)
@@ -69,7 +83,7 @@ function SortItemsEfficient(frame_rate)
             end
         end
     end
-    
+
     -- 按物品名称排序，空物品放在最后
     table.sort(allItems, function(a, b)
         if a.isEmpty and not b.isEmpty then
@@ -82,20 +96,22 @@ function SortItemsEfficient(frame_rate)
             return a.name < b.name  -- 两个都不是空的，按名称排序
         end
     end)
-    
+
     -- 创建目标位置映射
     targetPositions = {}
     -- local targetPositions = {}
     local index = 1
-    
+
     -- 第一个背包的目标位置
-    for pos = 1, 16 do
-        targetPositions[index] = {backpack = 0, position = pos}
-        index = index + 1
+    if bag_start == 0 then
+        for pos = 1, 16 do
+            targetPositions[index] = {backpack = 0, position = pos}
+            index = index + 1
+        end
     end
-    
+
     -- 后三个背包的目标位置
-    for backpack = 1, 3 do
+    for backpack = backpack_start, backpack_end do
         for pos = 1, 28 do
             targetPositions[index] = {backpack = backpack, position = pos}
             index = index + 1
@@ -148,7 +164,7 @@ local function SortInTimer()
 
     local currentItem = allItems[i]
     local targetPos = targetPositions[i]
-    
+
     -- 检查当前位置是否应该是空的
     if currentItem.isEmpty then
         -- 如果目标位置有物品，需要移动到空位置
@@ -167,7 +183,7 @@ local function SortInTimer()
         if currentItem.backpack ~= targetPos.backpack or currentItem.position ~= targetPos.position then
             -- 执行交换
             S(currentItem.backpack, currentItem.position, targetPos.backpack, targetPos.position)
-            
+
             -- 更新其他物品的位置信息
             for j = i + 1, itemCount do
                 if allItems[j].backpack == targetPos.backpack and allItems[j].position == targetPos.position then

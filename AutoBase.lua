@@ -10,6 +10,20 @@ function GetInventoryItemName(bag, slot)
     return ""
 end
 
+-- 获取第bag背包 的 第slot位置 的物品id
+function GetInventoryItemID(bag, slot)
+    local itemLink = GetContainerItemLink(bag, slot)
+    if itemLink then
+        local id = tonumber(string.match(itemLink,"item:(%d*):"))
+        if id then
+            return id
+        end
+        return -1
+    end
+
+    return -1
+end
+
 function UseInventoryItem(itemName)
     for bag = 0, 4 do
         for slog = 1, 28 do
@@ -51,4 +65,69 @@ function TabByAction(action_id)
     if a~=1 then
         TargetNearestEnemy()
     end
+end
+
+function printAll(...)
+	if arg.n == 0 then
+		return
+	elseif arg.n == 1 then
+		print(tostring(arg[1]))
+	else
+        local result = ""
+		for i = 1, arg.n do
+            if arg[i] == nil then
+                break
+            end
+            if i > 1 then
+                result = result .. ", "
+            end
+            result = result .. tostring(arg[i])
+		end
+        print(result)
+	end
+end
+mprint=printAll
+
+-- Hook StaticPopup相关函数
+local popupsSwitch = false
+function HookStaticPopups()
+    popupsSwitch = true
+    -- Hook StaticPopup_Show 函数
+    hooksecurefunc("StaticPopup_Show", function()
+        -- self:CheckAndCancelDialog(dialog, ...)
+        -- if StaticPopup1EditBox then
+        --     print("StaticPopup1EditBox")
+        -- end
+        -- if StaticPopup1Button2 then
+        --     print("StaticPopup1Button2")
+        -- end
+        -- local button1Text = StaticPopup1Button1:GetText()
+        -- local button2Text = StaticPopup1Button2:GetText()
+        -- local popupsText = StaticPopup1Text:GetText()
+        -- local dialogsText = StaticPopupDialogs['LOOT_BIND']:GetText()
+        -- print(button1Text)
+        -- print(button2Text)
+        -- print(popupsText)
+        -- print(dialogsText)
+
+        -- if popupsSwitch and StaticPopup1EditBox and StaticPopup1Button2 then
+        --     StaticPopup1Button2:Click()
+        -- end
+        StaticPopup1Button2:Click()
+    end)
+
+    -- -- Hook StaticPopup_OnShow 函数
+    -- for i = 1, 4 do
+    --     local frame = _G["StaticPopup"..i]
+    --     if frame then
+    --         frame:HookScript("OnShow", function()
+    --             -- AutoClickCancel:OnDialogShown(self)
+    --             -- StaticPopup1Button2:Click()
+    --         end)
+    --     end
+    -- end
+end
+
+function HookStaticPopupsSwitch()
+    popupsSwitch = not popupsSwitch
 end

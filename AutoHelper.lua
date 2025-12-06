@@ -85,7 +85,27 @@ function GetRogueBuffs()
     return buffs
 end
 
-function RogueMainAttackSpell(spell)
+local mainPoison = "速效药膏 VI"
+local secondPoison = "速效药膏 VI"
+function RogueDoWeaponPoison(mPoison, sPoison)
+    if UnitAffectingCombat("player") then
+        return
+    end
+
+    local mh,_,_,oh,_,_=GetWeaponEnchantInfo()
+    if not mh then
+        mPoison = mPoison or mainPoison
+        UseInventoryItem(mPoison)
+        PickupInventoryItem(GetInventorySlotInfo("MainHandSlot"))
+    end
+    if not oh then
+        sPoison = sPoison or secondPoison
+        UseInventoryItem(sPoison)
+        PickupInventoryItem(GetInventorySlotInfo("SecondaryHandSlot"))
+    end
+end
+
+function RogueMainAttackSpell(spell, mPoison, sPoison)
     local comboPoints = GetComboPoints()
     local buffs = GetRogueBuffs()
 
@@ -96,6 +116,8 @@ function RogueMainAttackSpell(spell)
         UseInventoryItem("豪华大餐")
     end
 
+    RogueDoWeaponPoison(mPoison, sPoison)
+
     if comboPoints > 1 and not buffs.hasSliceDice then
         CastSpellByName("切割")
     elseif comboPoints == 5 and buffs.hasSliceDice then
@@ -105,7 +127,7 @@ function RogueMainAttackSpell(spell)
     end
 end
 
-function RogueMainAttackSpell_AntiCaptcha(spell)
+function RogueMainAttackSpell_AntiCaptcha(spell, mPoison, sPoison)
     local comboPoints = GetComboPoints()
     local buffs = GetRogueBuffs()
 
@@ -118,6 +140,8 @@ function RogueMainAttackSpell_AntiCaptcha(spell)
     if not buffs.hasBuffHHDC then
         UseInventoryItem("豪华大餐")
     end
+
+    RogueDoWeaponPoison(mPoison, sPoison)
 
     if comboPoints > 1 and not buffs.hasSliceDice then
         CastSpellByName("切割")

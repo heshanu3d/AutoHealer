@@ -71,6 +71,36 @@ function FSIBN_Anything(bag_start, bag_end)
     SellAnything_flag = true
 end
 
+local FastBuy_flag = false
+local FastBuy_slot = -1
+local AutoFastBuy_bag_start = -1
+local AutoFastBuy_bag_end = -1
+function AutoFastBuy()
+    local slot_max = 16
+    for bag = AutoFastBuy_bag_start, AutoFastBuy_bag_end do
+        if bag > 0 then
+            slot_max = 28
+        end 
+        for slot = 1, slot_max do
+            local itemLink = GetContainerItemLink(bag, slot)
+            if not itemLink then
+                BuyMerchantItem(FastBuy_slot)
+                return
+            end
+        end
+    end
+    -- 买完了，停止
+    FastBuy_flag = false
+end
+function FastBuy(bag_start, bag_end, buy_slot)
+    if not merchant_state then
+        return
+    end
+    FastBuy_slot = buy_slot
+    AutoFastBuy_bag_start = bag_start
+    AutoFastBuy_bag_end = bag_end
+    FastBuy_flag = true
+end
 
 local sellTimer = CreateFrame("Frame") -- 解决N服端快速卖垃圾掉线的问题
 sellTimer:Hide()
@@ -89,6 +119,9 @@ sellTimer:SetScript("OnUpdate", function()
                 if SellAnything_flag then
                     AutoFastSell_AnyThing()
                 end
+                if FastBuy_flag then
+                    AutoFastBuy()
+                end
             end
         end
     end
@@ -106,8 +139,22 @@ sellSwitcher:SetScript("OnEvent", function()
             sellTimer:Hide()
             merchant_state = false
             SellAnything_flag = false
+            FastBuy_flag = false
             -- print("MERCHANT_CLOSED")
         end
     end
 )
--- --------------------------------------------------FastSellItem
+-----------------------------------------------------FastSellItem
+
+-- function AutoFilterHighAttrEquipment(bag_end)
+--     bag_end = bag_end or 3
+--     for bag = 0, bag_end do
+--         for slot = 1, 28 do
+--             local itemLink = GetContainerItemLink(bag, slot)
+--             if itemLink then
+--                 UseContainerItem(bag, slot)
+--                 return
+--             end
+--         end
+--     end
+-- end
