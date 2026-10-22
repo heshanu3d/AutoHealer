@@ -213,3 +213,6 @@ function PalidinMainAttackSpell(aoe_spell, aoe_action_id, single_spell)
         CastSpellByName(single_spell)
     end
 end
+
+
+

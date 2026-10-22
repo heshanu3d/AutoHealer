@@ -1,3 +1,4 @@
+## SavedVariables: AutoHealerDB
 ## Interface: 11200
 ## Title: |CFF33AAFF[BOT]|RAuto Healer
 ## Author: Shan.He
@@ -6,8 +7,14 @@
 ## Notes: Automatically heals party members and their pets based on class|n/autohealer |cFFFFFF00|n 1.12/turtle by Shan.He
 
 AutoBase.lua
+AutoSkillIDs.lua
+AutoSkillTooltip.lua
 AutoHealer.lua
 AutoCaptcha.lua
 AutoHelper.lua
+AutoLoot.lua
 AutoSeller.lua
 AutoItemSorter.lua
+
+AutoRogue.lua
+AutoPaladin.lua

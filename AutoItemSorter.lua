@@ -1,215 +1,135 @@
-local sortTimer = CreateFrame("Frame") -- 解决N服端快速卖垃圾掉线的问题
-sortTimer:Hide()
-sortTimer.interval = TOOLTIP_UPDATE_TIME
-sortTimer.cnt = 0
-sortTimer.frame_cnt = 0
-sortTimer.frame_rate = 12 -- 相当于 一秒触发 60/12 次
-
-local allItems = {}
-local itemCount = 0
-local nonEmptyItemCount = 0
-local targetPositions = {}
-local sort_cnt = 1
-local U = GetInventoryItemName
-local S = SwapItem
-
-function ClearTable(t)
-    for k, v in pairs(t) do
-        t[k] = nil
+-- Sort live inventory, waiting for each swap to be acknowledged.
+local driver = CreateFrame("Frame")
+local groups, groupIndex, position, elapsed, waiting, pending, report
+local interval = 0.3
+local function Message(text)
+    if report then report(text) end
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33aaffAutoHealer:|r " .. text)
+end
+function AutoItemSorter_Stop(silent)
+    groups, pending = nil, nil
+    driver:Hide()
+    if not silent then Message("排序已停止。") end
+end
+local function Read(pos)
+    local link = GetContainerItemLink(pos.bag, pos.slot)
+    local _, count, locked = GetContainerItemInfo(pos.bag, pos.slot)
+    local _, _, name = string.find(link or "", "%[(.-)%]")
+    return {link = link, count = count, locked = locked, name = name}
+end
+local function Before(a, b)
+    if not a.name then return false end
+    return not b.name or a.name < b.name
+end
+local function Same(a, b)
+    return a.link == b.link and a.count == b.count
+end
+local function AddBag(list, bag)
+    for slot = 1, GetContainerNumSlots(bag) do
+        table.insert(list, {bag = bag, slot = slot})
     end
 end
-
--- 函数U(a,b) 介绍 a表示第a个背包，b表示背包里的第几个物品
--- 现在有4个背包，第1个背包有16个物品，后3个背包有28个物品，总共16+28*3=100个物品
--- 使用函数U(0,1)~U(0,16)获取第1~16个物品的名字，
--- 使用函数U(1,1)~U(1,28)获取第17~44个物品的名字，
--- 使用函数U(2,1)~U(2,28)获取第45~72个物品的名字，
--- 使用函数U(3,1)~U(3,28)获取第73~100个物品的名字，
--- 使用函数S(src_a,src_b,dst_a,dst_b)交换第src_a背包里第src_b个物品 和 第dst_a背包里第dst_b个物品 的位置
--- 要求使用lua语言 以上提供的函数U和S ，对背包里的物品进行排序
-function SortItemsEfficient(frame_rate, bag_start, bag_end)
-    local bag_start = bag_start or 0
-    local bag_end = bag_end or 0
-    local backpack_start = -1
-    local backpack_end = bag_end
-
-    if bag_start > bag_end then
+local function Begin(newGroups, callback, delay)
+    if UnitAffectingCombat("player") or CursorHasItem() then
+        report = callback
+        Message("请先脱离战斗，并放下鼠标上的物品。")
         return
     end
-
-    sortTimer.frame_rate = frame_rate or 12
-    sort_cnt = 1
-
-    -- 收集所有物品信息
-    -- allItems = {}
-    ClearTable(allItems)
-    itemCount = 0
-    nonEmptyItemCount = 0
-    -- local allItems = {}
-    -- local itemCount = 0
-
-    -- 获取所有物品
-    if bag_start == 0 then
-        for i = 1, 16 do
-            itemCount = itemCount + 1
-            local itemName = U(0, i)
-            allItems[itemCount] = {
-                name = itemName,
-                backpack = 0,
-                position = i,
-                isEmpty = (itemName == "")
-            }
-            if itemName ~= "" then
-                nonEmptyItemCount = nonEmptyItemCount + 1
-            end
-        end
-        backpack_start = 1
-    else
-        backpack_start = bag_start
-    end
-
-    for backpack = backpack_start, backpack_end do
-        for i = 1, 28 do
-            itemCount = itemCount + 1
-            local itemName = U(backpack, i)
-            allItems[itemCount] = {
-                name = itemName,
-                backpack = backpack,
-                position = i,
-                isEmpty = (itemName == "")
-            }
-            if itemName ~= "" then
-                nonEmptyItemCount = nonEmptyItemCount + 1
-            end
-        end
-    end
-
-    -- 按物品名称排序，空物品放在最后
-    table.sort(allItems, function(a, b)
-        if a.isEmpty and not b.isEmpty then
-            return false  -- a是空的，b不是，把a放后面
-        elseif not a.isEmpty and b.isEmpty then
-            return true   -- a不是空的，b是空的，把a放前面
-        elseif a.isEmpty and b.isEmpty then
-            return false  -- 两个都是空的，保持相对顺序
-        else
-            return a.name < b.name  -- 两个都不是空的，按名称排序
-        end
-    end)
-
-    -- 创建目标位置映射
-    targetPositions = {}
-    -- local targetPositions = {}
-    local index = 1
-
-    -- 第一个背包的目标位置
-    if bag_start == 0 then
-        for pos = 1, 16 do
-            targetPositions[index] = {backpack = 0, position = pos}
-            index = index + 1
-        end
-    end
-
-    -- 后三个背包的目标位置
-    for backpack = backpack_start, backpack_end do
-        for pos = 1, 28 do
-            targetPositions[index] = {backpack = backpack, position = pos}
-            index = index + 1
-        end
-    end
-
-    print("start sort")
-    sortTimer:Show()
-
-    -- 执行排序交换
-    -- for i = 1, itemCount do
-    --     local currentItem = allItems[i]
-    --     local targetPos = targetPositions[i]
-
-    --     -- 检查当前位置是否应该是空的
-    --     if currentItem.isEmpty then
-    --         -- 如果目标位置有物品，需要移动到空位置
-    --         local currentTargetItem = U(targetPos.backpack, targetPos.position)
-    --         if currentTargetItem ~= "" then
-    --             -- 找到下一个空位置来交换
-    --             for j = i + 1, itemCount do
-    --                 if allItems[j].isEmpty then
-    --                     S(targetPos.backpack, targetPos.position, allItems[j].backpack, allItems[j].position)
-    --                     break
-    --                 end
-    --             end
-    --         end
-    --     else
-    --         -- 如果物品不在目标位置，进行交换
-    --         if currentItem.backpack ~= targetPos.backpack or currentItem.position ~= targetPos.position then
-    --             -- 执行交换
-    --             S(currentItem.backpack, currentItem.position, targetPos.backpack, targetPos.position)
-
-    --             -- 更新其他物品的位置信息
-    --             for j = i + 1, itemCount do
-    --                 if allItems[j].backpack == targetPos.backpack and allItems[j].position == targetPos.position then
-    --                     allItems[j].backpack = currentItem.backpack
-    --                     allItems[j].position = currentItem.position
-    --                     break
-    --                 end
-    --             end
-    --         end
-    --     end
-    -- end
+    AutoSeller_Stop(true)
+    report = callback
+    groups, groupIndex, position = newGroups, 1, 1
+    elapsed, waiting, pending = 0, 0, nil
+    interval = delay or 0.3
+    Message("正在排序；点击停止可中止。")
+    driver:Show()
 end
-
-local function SortInTimer()
-    local i = sort_cnt
-    print("sort " .. i)
-
-    local currentItem = allItems[i]
-    local targetPos = targetPositions[i]
-
-    -- 检查当前位置是否应该是空的
-    if currentItem.isEmpty then
-        -- 如果目标位置有物品，需要移动到空位置
-        local currentTargetItem = U(targetPos.backpack, targetPos.position)
-        if currentTargetItem ~= "" then
-            -- 找到下一个空位置来交换
-            for j = i + 1, itemCount do
-                if allItems[j].isEmpty then
-                    S(targetPos.backpack, targetPos.position, allItems[j].backpack, allItems[j].position)
-                    break
-                end
-            end
-        end
-    else
-        -- 如果物品不在目标位置，进行交换
-        if currentItem.backpack ~= targetPos.backpack or currentItem.position ~= targetPos.position then
-            -- 执行交换
-            S(currentItem.backpack, currentItem.position, targetPos.backpack, targetPos.position)
-
-            -- 更新其他物品的位置信息
-            for j = i + 1, itemCount do
-                if allItems[j].backpack == targetPos.backpack and allItems[j].position == targetPos.position then
-                    allItems[j].backpack = currentItem.backpack
-                    allItems[j].position = currentItem.position
-                    break
-                end
-            end
+function AutoItemSorter_StartBags(selected, callback)
+    local lists = {}
+    for bag = 0, 4 do
+        if selected[bag] and GetContainerNumSlots(bag) > 0 then
+            local list = {}
+            AddBag(list, bag)
+            table.insert(lists, list)
         end
     end
-
-    sort_cnt = sort_cnt + 1
-    -- if sort_cnt > itemCount then
-    if sort_cnt > nonEmptyItemCount then
-        sortTimer:Hide()
+    if table.getn(lists) == 0 then
+        report = callback
+        Message("请先勾选至少一个已装备的背包。")
+        return
+    end
+    Begin(lists, callback)
+end
+-- Preserve the existing macro's combined range behavior.
+function SortItemsEfficient(frame_rate, bag_start, bag_end)
+    bag_start, bag_end = bag_start or 0, bag_end or 0
+    if bag_start < 0 or bag_end > 4 or bag_start > bag_end then return end
+    local list = {}
+    for bag = bag_start, bag_end do AddBag(list, bag) end
+    Begin({list}, nil, math.max(0.3, (frame_rate or 12) / 60))
+end
+local function WaitOrStop()
+    waiting = waiting + 1
+    if waiting >= 10 then
+        AutoItemSorter_Stop(true)
+        Message("物品锁定或移动未完成，排序已停止，请稍后重试。")
     end
 end
-
-sortTimer:SetScript("OnUpdate", function()
-        this.sinceLast = (this.sinceLast or 0) + arg1
-        if this.sinceLast > this.interval then
-            this.cnt = (this.cnt or 0) + 1
-            if this.cnt > this.frame_cnt * this.frame_rate then
-                this.frame_cnt = this.frame_cnt + 1
-                SortInTimer()
-            end
-        end
+local function Tick()
+    if UnitAffectingCombat("player") or CursorHasItem() then
+        AutoItemSorter_Stop(true)
+        Message("进入战斗或鼠标持有物品，排序已停止。")
+        return
     end
-)
+    if pending then
+        local src, dst = Read(pending.src), Read(pending.dst)
+        if src.locked or dst.locked then WaitOrStop(); return end
+        if not Same(src, pending.afterSrc) or not Same(dst, pending.afterDst) then
+            WaitOrStop(); return
+        end
+        pending, waiting = nil, 0
+    end
+    local list = groups[groupIndex]
+    if not list then
+        AutoItemSorter_Stop(true)
+        Message("背包排序完成。")
+        return
+    end
+    if position > table.getn(list) then
+        groupIndex, position = groupIndex + 1, 1
+        return
+    end
+    local target = list[position]
+    local current = Read(target)
+    local best, bestItem = position, current
+    for i = position, table.getn(list) do
+        local item = Read(list[i])
+        if item.locked then WaitOrStop(); return end
+        if Before(item, bestItem) then best, bestItem = i, item end
+    end
+    if best == position then
+        waiting, position = 0, position + 1
+        return
+    end
+    local source = list[best]
+    PickupContainerItem(source.bag, source.slot)
+    if not CursorHasItem() then WaitOrStop(); return end
+    PickupContainerItem(target.bag, target.slot)
+    -- Return the displaced item to the source when swapping occupied slots.
+    if CursorHasItem() then PickupContainerItem(source.bag, source.slot) end
+    if CursorHasItem() then
+        ClearCursor()
+        AutoItemSorter_Stop(true)
+        Message("无法交换物品，排序已停止。")
+        return
+    end
+    waiting = 0
+    pending = {src = source, dst = target, afterSrc = current, afterDst = bestItem}
+end
+ driver:SetScript("OnUpdate", function()
+    if not groups then return end
+    elapsed = elapsed + arg1
+    if elapsed < interval then return end
+    elapsed = 0
+    Tick()
+end)
+driver:Hide()

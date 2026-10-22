@@ -262,12 +262,27 @@ f:SetHeight(50)
 f:SetPoint("CENTER", -300, 200)
 f:SetMovable(true)
 f:EnableMouse(true)
-f:RegisterForDrag("LeftButton")
-f:SetScript("OnDragStart", function(self, button)
-	self:StartMoving()
-end)
-f:SetScript("OnDragStop", function(self)
-	self:StopMovingOrSizing()
+-- Both the frame and its child button drag the same parent with right mouse.
+local function AH_StartDrag()
+    f:StartMoving()
+end
+local function AH_StopDrag()
+    f:StopMovingOrSizing()
+    AutoHealerDB = AutoHealerDB or {}
+    AutoHealerDB.togglePosition = { x = f:GetLeft(), y = f:GetBottom() }
+end
+f:RegisterForDrag("RightButton")
+f:SetScript("OnDragStart", AH_StartDrag)
+f:SetScript("OnDragStop", AH_StopDrag)
+if f.SetClampedToScreen then f:SetClampedToScreen(true) end
+local positionLoader = CreateFrame("Frame")
+positionLoader:RegisterEvent("VARIABLES_LOADED")
+positionLoader:SetScript("OnEvent", function()
+    local pos = AutoHealerDB and AutoHealerDB.togglePosition
+    if pos and type(pos.x) == "number" and type(pos.y) == "number" then
+        f:ClearAllPoints()
+        f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", pos.x, pos.y)
+    end
 end)
 -- 设置背景
 f:SetBackdrop({
@@ -291,7 +306,20 @@ button:SetNormalTexture("Interface\\Buttons\\UI-Panel-Button-Up")
 button:SetPushedTexture("Interface\\Buttons\\UI-Panel-Button-Down")
 button:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight", "ADD")
 -- 设置按钮点击事件
+button:RegisterForClicks("LeftButtonUp")
+button:RegisterForDrag("RightButton")
+button:SetScript("OnDragStart", AH_StartDrag)
+button:SetScript("OnDragStop", AH_StopDrag)
 button:SetScript("OnClick", ToggleEnable)
+
+local sellerButton = CreateFrame("Button", "AutoHealerSellerButton", f, "UIPanelButtonTemplate")
+sellerButton:SetWidth(112)
+sellerButton:SetHeight(24)
+sellerButton:SetPoint("TOP", f, "BOTTOM", 0, -2)
+sellerButton:SetText("自动助手设置")
+sellerButton:SetScript("OnClick", function()
+    if AutoSeller_ToggleWindow then AutoSeller_ToggleWindow() end
+end)
 
 print("AutoHealer loaded...")
 UpdateText()
